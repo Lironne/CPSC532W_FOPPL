@@ -24,8 +24,6 @@ def add_context(vals, c, context):
 def apply(operator, vals):
     if len(vals) < 2:
         return operator(vals)
-    elif operator == pr.context['vector'][0]:
-         return operator(vals)
     else:
         return reduce(operator, reversed(vals))
 
@@ -58,16 +56,14 @@ def evaluate_program_observe(dist, var, context):
 def evaluate_program_bool(exp_1,exp_2,exp_3, context):
     e_bool = evaluate_program_help(exp_1, context)
     if e_bool[0]:
-        res, sig, = evaluate_program_help(exp_2, context)
-        return res
+       return evaluate_program_help(exp_2, context)
     else:
-        res, sig = evaluate_program_help(exp_3, context) 
-        return res
+        return evaluate_program_help(exp_3, context) 
 
 def evaluate_program_help(ast, context):
     if is_ast_c(ast): 
         if pr.is_primitive(ast):                                             # 8: case c 
-            operator, e_0 = context[ast[0]]
+            operator = context[ast[0]]
             return operator, []
         else: 
             return torch.Tensor([ast]), []                            
@@ -88,7 +84,7 @@ def evaluate_program_help(ast, context):
             c_i, sig = evaluate_program_help(ast[i], context)
             c.append(c_i)
         if pr.is_primitive(ast[0]):                                          # 28: case c
-            operator, e_0 = context[ast[0]]
+            operator = context[ast[0]]
             return apply(operator, c), []
         else: 
             vals, e_0 = context[ast[0]]

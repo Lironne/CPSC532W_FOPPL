@@ -1,21 +1,19 @@
 import torch
-import os
 import torch.distributions as dist
-import operator
-import math
+import os, math, copy, operator
 
+from collections.abc import Iterable
 from daphne import daphne
 
 from primitives import context as pr
 from tests import is_tol, run_prob_test,load_truth
-
+from evaluation_based_sampling import evaluate_program_help
 
 
 dirn = os.path.dirname(os.path.abspath(__file__))
 # Put all function mappings from the deterministic language environment to your
 # Python evaluation context here:
-env = {'normal': dist.Normal,
-        'sqrt': torch.sqrt,
+env = {'sqrt': lambda x: torch.sqrt(x[0]),
         'vector': lambda *x: torch.tensor(x),
         '+' : operator.add,
         '-' : operator.sub,
@@ -29,12 +27,12 @@ env = {'normal': dist.Normal,
         'last': lambda a: x[-1],
         'append': lambda a,x: a.append(x),
         '<': lambda a,b: b < a, 
-        '>':lambda a,b: b > a, 
-        'normal': torch.distributions.normal.Normal,
-        'beta': torch.distributions.beta.Beta,
-        'uniform': torch.distributions.uniform.Uniform,
-        'exponential': torch.distributions.exponential.Exponential,
-        'discrete': torch.distributions.categorical.Categorical,
+        '>': lambda a,b: b > a, 
+        'normal': lambda a,b: torch.distributions.normal.Normal(b,a),
+        'beta': lambda a,b: torch.distributions.beta.Beta(b,a),
+        'uniform': lambda a,b: torch.distributions.uniform.Uniform(b,a),
+        'exponential': lambda a: torch.distributions.exponential.Exponential(a[0]),
+        'discrete': lambda a: torch.distributions.categorical.Categorical(torch.flatten(a[0])),
         'second': lambda a: a[1],
         'rest': lambda a: a[1:],
         'mat-transpose': lambda a: a.t(),
@@ -44,20 +42,24 @@ env = {'normal': dist.Normal,
         # 'mat-tanh': (lambda a: torch.tanh(a[0]), [])'
        }
 
-def top_sort(V, E):
 
-    deg_count = {0:[]}
 
-    for v in V:
-        if v in E:
-            deg_v = len(E[v])
-            if deg_v in deg_count:
-                deg_count[deg_v].append(v)
-            else:
-                deg_count[deg_v] = [v]
+def top_sort(E):
+
+    deg_count = {}
+    for edge in E:
+        vertex = E[edge]
+        if edge not in env:
+            for v in vertex:
+                if v in deg_count:
+                    deg_count[v] += 1
+                else:
+                    deg_count[v] = 1
         else:
-            deg_count[0].append(v)  
-    return deg_count
+            for v in vertex:
+                deg_count[v] = 0
+
+    return dict(sorted(deg_count.items(), key=lambda item: item[1]))
 
 
 
@@ -83,25 +85,23 @@ def sample_from_joint(graph):
     graph_struct = graph[1]
     ret_exp = graph[2]
 
-    var_order = top_sort(graph_struct['V'], graph_struct['A'])
+    var_order = top_sort(graph_struct['A'])
     link_func = graph_struct['P']
 
-    var_val = {}
-
-    for deg in var_order:
-        V = var_order[deg]
-        for v in V:
-            print('var_val: ', var_val)
+    if var_order:
+        for v in var_order:
             exp = link_func[v]
-            op = exp[0]
-            if op == 'if':
-            
+            eval_exp, sig = evaluate_program_help(exp[1], env)
+            env[v] = eval_exp.sample()
+    else:
+        for v in graph_struct['V']:
+            exp = link_func[v]
+            eval_exp, sig = evaluate_program_help(exp[1], env)
+            env[v] = eval_exp.sample()
 
-
-            ret = deterministic_eval(exp[1])
-            var_val[v] = ret.sample()
-
-    return var_val[ret_exp]
+    
+    sample, sig = evaluate_program_help(ret_exp, env)
+    return sample.item()
 
 
 
@@ -145,7 +145,7 @@ def run_probabilistic_tests():
     
     for i in range(1,7):
         #note: this path should be with respect to the daphne path!  
-        filename = dirn +  '/programs/tests/probabilistic/test_5.daphne'
+        filename = dirn +  '/programs/tests/probabilistic/test_{}.daphne'
         graph = daphne(['graph', '-i', filename.format(i)])
         truth = load_truth('programs/tests/probabilistic/test_{}.truth'.format(i))
         
