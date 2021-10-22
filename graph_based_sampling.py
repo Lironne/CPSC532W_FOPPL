@@ -7,8 +7,7 @@ import os, math, copy, operator
 from collections.abc import Iterable
 from daphne import daphne
 
-
-from primitives import vector_two, get, put, hash_map, mat_remat, mat_mul
+from primitives import vector, put, hash_map, mat_mul
 from tests import is_tol, run_prob_test,load_truth
 from evaluation_based_sampling import evaluate_program_help
 
@@ -16,58 +15,55 @@ from evaluation_based_sampling import evaluate_program_help
 dirn = os.path.dirname(os.path.abspath(__file__))
 # Put all function mappings from the deterministic language environment to your
 # Python evaluation context here:
-env = {'sqrt': lambda x: torch.sqrt(x[0]),
-        'vector': lambda *x: vector,
+env = {'sqrt':  torch.sqrt,
+        'vector': lambda *x: vector(x),
         '+' : operator.add,
         '-' : operator.sub,
         '*' : operator.mul,
         '/' : lambda a,b: b / a,  # use operator.div for Python 2
         '%' : operator.mod,
         '^' : operator.xor, 
-        'get': get,
+        'get': lambda a,b: a[b.long()],
         'put': put,
-        'first': lambda a: x[0] if len(x) > 1 else x[0][0],
-        'last': lambda a: x[-1] if len(x) > 1 else x[0][-1],
-        'second': lambda x: x[1] if len(x) > 1 else x[0][1],
-        'rest': lambda x: x[1:] if len(x) > 1 else x[0][1:] ,
-        'append': lambda x,a: torch.cat((a,torch.Tensor([x]))), 
+        'first': lambda x: x[0],
+        'last': lambda x: x[-1],
+        'second': lambda x: x[1],
+        'rest': lambda x: x[1:],
+        'append': lambda x,a: torch.cat((x,torch.Tensor([a]))), 
         '<': lambda a,b: b < a, 
         '>': lambda a,b: b > a, 
-        'normal': lambda a,b: torch.distributions.normal.Normal(a,b),
-        'beta': lambda a,b: torch.distributions.beta.Beta(a,b),
-        'uniform': lambda a,b: torch.distributions.uniform.Uniform(a,b),
-        'exponential': lambda a: torch.distributions.exponential.Exponential(a[0]),
-        'discrete': lambda a: torch.distributions.categorical.Categorical(torch.flatten(a[0])),
-        #'discrete': lambda a: print('in disc? ', a),
-        'mat-transpose': lambda a: a[0].t(),
-        'mat-mul':mat_mul,
-        'mat-repmat': mat_remat,
+        'normal': lambda a,b: dist.normal.Normal(a,b),
+        'beta': lambda a,b: dist.beta.Beta(a,b),
+        'uniform': lambda a,b: dist.uniform.Uniform(a,b),
+        'exponential': lambda a: dist.exponential.Exponential(a),
+        'discrete': lambda a: dist.categorical.Categorical(torch.flatten(a)),
+        'mat-transpose': lambda t: torch.transpose(t,0,1),
+        'mat-repmat': lambda t,d0,d1: t.repeat(d0.int(),d1.int()),
+        'mat-mul': mat_mul,
         'mat-add': torch.add, 
-        'mat-tanh': lambda a: torch.tanh(a[0]),
+        'mat-tanh': torch.tanh,
        }
 
+
+# modified from an algorithm taken from
+# https://www.geeksforgeeks.org/topological-sorting/
 def topologicalSortUtil(v,E,neighbours,visited,stack):
- 
     # Mark the current node as visited.
     visited[v] = 1
- 
     # Recur for all the vertices adjacent to this vertex
     for i in neighbours:
         if visited[i] == 0:
             if i in E:
                 topologicalSortUtil(i,E,E[i],visited,stack)
             else: 
-                    topologicalSortUtil(i,E,[],visited,stack)
- 
-        # Push current vertex to stack which stores result
+                topologicalSortUtil(i,E,[],visited,stack)
+    # Push current vertex to stack which stores result
     stack.insert(0,v)
 
 def top_sort(V,E):
-
     n = len(V)
     visited = dict(zip(V, np.zeros(n)))
     stack =[]
- 
     # Call the recursive helper function to store Topological
     # Sort starting from all vertices one by one
     for i in range(n):
@@ -76,7 +72,6 @@ def top_sort(V,E):
                 topologicalSortUtil(V[i],E,E[V[i]],visited,stack)
             else: 
                 topologicalSortUtil(V[i],E,[],visited,stack)
- 
     return stack
 
 
@@ -113,14 +108,15 @@ def sample_from_joint(graph):
 
     for v in var_order:
         exp = link_func[v]
-        print('v: ', v, 'link func: ', exp[1])
         eval_exp, sig = evaluate_program_help(exp[1], env)
         env[v] = eval_exp.sample()     
     
     sample, sig = evaluate_program_help(ret_exp, env)
     try:
+        # single sample
         return sample.item()
     except:
+        # multi batch sample
         return sample
 
 

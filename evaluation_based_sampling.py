@@ -13,22 +13,11 @@ def is_ast_c(ast):
     if isinstance(ast, Iterable):
         return False
     else:
-        return type(ast) == float or isinstance(ast, int) or pr.is_primitive(ast) or (torch.is_tensor(ast) and (not ast.size()))
+        return (not torch.is_tensor(ast)) and (type(ast) == float or isinstance(ast, int) or pr.is_primitive(ast))  
 
 def add_context(vals, c, context):
     for i in range(len(c)):
         context[vals[i]] = c[i]
-    return context
-
-# def apply(operator, vals):
-#     if len(vals) < 2:
-#         return operator(vals)
-#     else:
-#         return reduce(operator, reversed(vals))
-
-
-def evaluate_program_defn(exp_1, exp_2,exp_3, context):
-    context[exp_1] = (exp_2, exp_3)
     return context
 
 def evaluate_program_sample(dist, context):
@@ -53,8 +42,8 @@ def evaluate_program_observe(dist, var, context):
         return torch.Tensor([sample]), []
     
 def evaluate_program_bool(exp_1,exp_2,exp_3, context):
-    e_bool = evaluate_program_help(exp_1, context)
-    if e_bool[0]:
+    e_bool, sig = evaluate_program_help(exp_1, context)
+    if e_bool:
        return evaluate_program_help(exp_2, context)
     else:
         return evaluate_program_help(exp_3, context) 
@@ -64,8 +53,10 @@ def evaluate_program_help(ast, context):
         if pr.is_primitive(ast):                                             # 8: case c 
             operator = context[ast[0]]
             return operator, []
+        elif torch.is_tensor(ast):
+            return ast, []
         else: 
-            return torch.Tensor([ast]), []                            
+            return torch.FloatTensor([ast]), []                            
     elif ast[0] == 'sample':                                                 # 4: case sample
         return evaluate_program_sample(ast[1],context)
     elif ast[0] == 'let':                                                    #  : case let
@@ -84,12 +75,11 @@ def evaluate_program_help(ast, context):
             c.append(c_i)
         if pr.is_primitive(ast[0]):                                          # 28: case c
             operator = context[ast[0]]
-            print('c: ', c)
             return operator(*c), []
         else: 
             vals, e_0 = context[ast[0]]
             context = add_context(vals, c ,context)                          # 25: case f      
-            return evaluate_program_help(e_0, context)                        
+            return evaluate_program_help(e_0, context)                   
 
 def evaluate_program(ast):
     """Evaluate a program as desugared by daphne, generate a sample from the prior
