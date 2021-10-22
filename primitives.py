@@ -1,24 +1,8 @@
 import torch
-import math, operator, copy
+import operator, copy
 
-from functools import reduce
 from collections.abc import Iterable
 
-def mat_mul(a,b):
-    try:
-        return a @ b
-    except:
-        return b @ a.t()
-
-def hash_map(a):
-    it = iter(a)
-    m = {}
-    for key, val in zip(it,it):
-        if isinstance(key, str):
-            m[key] = val
-        else:
-            m[key.item()] = val 
-    return m
 
 def append(a,e):
     try:
@@ -28,6 +12,7 @@ def append(a,e):
         try:
             a.append(e)
             return a
+        # list base case
         except:
             return [a[0],e]
 
@@ -54,14 +39,20 @@ def vector(a):
         else:
             return a
 
+def mat_mul(a,b):
+    try:
+        return a @ b
+    except:
+        return b @ a.t()
+
 
 context = { 'sqrt': lambda * x: torch.sqrt(torch.FloatTensor(x)),
             'vector': lambda *x: vector(x),
             'hash-map': lambda *x: dict(zip(x[::2],x[1::2])),
+            '/' : lambda a,b: a / b, 
             '+' : operator.add,
             '-' : operator.sub,
             '*' : operator.mul,
-            '/' : lambda a,b: a / b,  # use operator.div for Python 2
             '%' : operator.mod,
             '^' : operator.xor, 
             'put': put,

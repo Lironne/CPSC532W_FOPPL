@@ -7,7 +7,7 @@ import os, math, copy, operator
 from collections.abc import Iterable
 from daphne import daphne
 
-from primitives import vector, put, hash_map, mat_mul
+from primitives import vector, put, get, append, mat_mul
 from tests import is_tol, run_prob_test,load_truth
 from evaluation_based_sampling import evaluate_program_help
 
@@ -15,30 +15,30 @@ from evaluation_based_sampling import evaluate_program_help
 dirn = os.path.dirname(os.path.abspath(__file__))
 # Put all function mappings from the deterministic language environment to your
 # Python evaluation context here:
-env = {'sqrt':  torch.sqrt,
+env = { 'sqrt': lambda * x: torch.sqrt(torch.FloatTensor(x)),
         'vector': lambda *x: vector(x),
+        '/' : lambda a,b: a / b,
         '+' : operator.add,
         '-' : operator.sub,
         '*' : operator.mul,
-        '/' : lambda a,b: a / b,  # use operator.div for Python 2
         '%' : operator.mod,
         '^' : operator.xor, 
-        'get': lambda a,b: a[b.long()],
+        'get': get,
         'put': put,
         'first': lambda x: x[0],
         'last': lambda x: x[-1],
         'second': lambda x: x[1],
         'rest': lambda x: x[1:],
         'append': lambda x,a: torch.cat((x,torch.Tensor([a]))), 
-        '<': lambda a,b: b < a, 
-        '>': lambda a,b: b > a, 
+        '<': lambda a,b: a < b, 
+        '>': lambda a,b: a > b, 
         'normal': lambda a,b: dist.normal.Normal(a,b),
         'beta': lambda a,b: dist.beta.Beta(a,b),
         'uniform': lambda a,b: dist.uniform.Uniform(a,b),
         'exponential': lambda a: dist.exponential.Exponential(a),
         'discrete': lambda a: dist.categorical.Categorical(torch.flatten(a)),
         'mat-transpose': lambda t: torch.transpose(t,0,1),
-        'mat-repmat': lambda t,d0,d1: t.repeat(d0.int(),d1.int()),
+        'mat-repmat': lambda t,d0,d1: t.repeat(d0,d1),
         'mat-mul': mat_mul,
         'mat-add': torch.add, 
         'mat-tanh': torch.tanh,
@@ -179,8 +179,8 @@ def run_probabilistic_tests():
 if __name__ == '__main__':
     
 
-    #run_deterministic_tests()
-    #run_probabilistic_tests()
+    run_deterministic_tests()
+    run_probabilistic_tests()
 
 
 
