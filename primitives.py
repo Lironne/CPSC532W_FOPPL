@@ -6,7 +6,16 @@ import copy
 from functools import reduce
 from collections.abc import Iterable
 
+
+def mat_mul_tail(a,b):
+    print('a: ', a, 'b: ', b)
+    try:
+        return a(b)
+    except:
+        return b @ a 
+
 def mat_mul(a,b):
+    print('a: ', a, 'b: ', b)
     try:
         return b @ a
     except:
@@ -18,9 +27,6 @@ def mat_mul(a,b):
             b = torch.reshape(b, (shape[0],shape[0]))
             return b @ a
 
-def transpose(a):
-    m = a[0]
-    return m.t()
 
 def mat_add(a,b):
     a = a.squeeze()
@@ -35,34 +41,7 @@ def mat_remat(a,b):
     else:
         return (a,b)
 
-def second(x):  
-    if len(x) > 1 :
-        return x[1]
-    else: 
-        return x[0][1]
-
-def last(x):
-    if len(x) > 1:
-        return x[len(x) - 1]
-    else:
-        return x[0][-1]
-
-def rest(x):
-    if len(x) > 1:
-        return x[1:]
-    else:
-        return x[0][1:]
-
-def first(x):
-    if len(x) > 1:
-        return x[0]
-    else:
-        return x[0][0]
-
-def append(x,a):
-    return torch.cat((a,torch.Tensor([x])))
     
-
 def hash_map(a,b):
     if type(a) == tuple:
         c = a[0]
@@ -88,12 +67,39 @@ def put(a,b):
 def get(a,b):
     if isinstance(a,list):
         a = a[0]
-    if torch.is_tensor(b):
+    elif torch.is_tensor(b):
         return torch.index_select(b, 0 ,a.int())
     else:
         return b[a.int()]
 
-def vector(a): 
+def vector_two(a):
+    print('a: ', a)
+    try: 
+        x = a[0]
+        y = a[1]
+        return torch.stack([x,y])
+    except:
+        try:
+            if y.size():
+                y = torch.unsqueeze(y,1)
+            else: 
+                y = torch.unsqueeze(y,0) 
+            #print('x: ', x, 'y: ', y)
+            return torch.cat((x,y)) 
+        except: 
+            if isinstance(a[0], list):
+                try: 
+                    a[0].append(a[1])
+                    return a[0]
+                except:
+                    return a[0][0]
+            else:
+                return list(a)
+        
+
+
+
+def vector_one(a): 
     if torch.is_tensor(a[0]) and len(a) > 1:
         try:
             return torch.stack(a)
@@ -115,23 +121,23 @@ context = {
     '%' : operator.mod,
     '^' : operator.xor, 
     'sqrt': lambda x: torch.sqrt(x[0]),
-    'vector': vector, 
+    'vector': vector_one, 
     'get': get,
     'put': put,
-    'first': first,
-    'last': last,
-    'append': append, 
+    'first': lambda a: x[0] if len(x) > 1 else x[0][0],
+    'last': lambda a: x[-1] if len(x) > 1 else x[0][-1],
+    'second': lambda x: x[1] if len(x) > 1 else x[0][1],
+    'rest': lambda x: x[1:] if len(x) > 1 else x[0][1:] ,
+    'append': lambda x,a: torch.cat((a,torch.Tensor([x]))), 
     'hash-map': hash_map,
     '<': lambda a,b: b < a,
     '>':lambda a,b: b > a,
-    'normal': lambda a,b: torch.distributions.normal.Normal(b,a),
-    'beta': lambda a,b: torch.distributions.beta.Beta(b,a),
-    'uniform': lambda a,b: torch.distributions.uniform.Uniform(b,a),
+    'normal': lambda a,b: torch.distributions.normal.Normal(a,b),
+    'beta': lambda a,b: torch.distributions.beta.Beta(a,b),
+    'uniform': lambda a,b: torch.distributions.uniform.Uniform(a,b),
     'exponential': lambda a: torch.distributions.exponential.Exponential(a),
     'discrete': lambda a: torch.distributions.categorical.Categorical(torch.flatten(a[0])),
-    'second':second,
-    'rest': rest,
-    'mat-transpose': transpose,
+    'mat-transpose': lambda a: a[0].t(),
     'mat-mul':mat_mul,
     'mat-repmat': mat_remat,
     'mat-add': mat_add, 

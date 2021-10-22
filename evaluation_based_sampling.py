@@ -4,7 +4,6 @@ import numpy as np
 
 import primitives as pr 
 from daphne import daphne
-from functools import reduce
 from collections.abc import Iterable
 from tests import is_tol, run_prob_test,load_truth
 
@@ -21,11 +20,11 @@ def add_context(vals, c, context):
         context[vals[i]] = c[i]
     return context
 
-def apply(operator, vals):
-    if len(vals) < 2:
-        return operator(vals)
-    else:
-        return reduce(operator, reversed(vals))
+# def apply(operator, vals):
+#     if len(vals) < 2:
+#         return operator(vals)
+#     else:
+#         return reduce(operator, reversed(vals))
 
 
 def evaluate_program_defn(exp_1, exp_2,exp_3, context):
@@ -85,7 +84,8 @@ def evaluate_program_help(ast, context):
             c.append(c_i)
         if pr.is_primitive(ast[0]):                                          # 28: case c
             operator = context[ast[0]]
-            return apply(operator, c), []
+            print('c: ', c)
+            return operator(*c), []
         else: 
             vals, e_0 = context[ast[0]]
             context = add_context(vals, c ,context)                          # 25: case f      
