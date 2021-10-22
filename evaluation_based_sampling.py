@@ -13,7 +13,7 @@ def is_ast_c(ast):
     if isinstance(ast, Iterable):
         return False
     else:
-        return (not torch.is_tensor(ast)) and (type(ast) == float or isinstance(ast, int) or pr.is_primitive(ast))  
+        return torch.is_tensor(ast) or type(ast) == float or type(ast) == int or pr.is_primitive(ast) 
 
 def add_context(vals, c, context):
     for i in range(len(c)):
@@ -23,23 +23,16 @@ def add_context(vals, c, context):
 def evaluate_program_sample(dist, context):
     dist, sig = evaluate_program_help(dist, context)
     sample = dist.sample()
-    if sample.size():
+
+    try:
+        return sample.item(), []
+    except:
         return sample, []
-    else: 
-        return torch.Tensor([sample]), []
 
 def evaluate_program_let(exp_1,exp_0, context):
-    c_1, sig = evaluate_program_help(exp_1[1],context)
-    context[exp_1[0]] = c_1
+    context[exp_1[0]], sig = evaluate_program_help(exp_1[1],context)
     return evaluate_program_help(exp_0, context)
 
-def evaluate_program_observe(dist, var, context):
-    dist, sig = evaluate_program_help(dist, context)
-    sample = dist.sample()
-    if sample.size():
-        return sample, []
-    else: 
-        return torch.Tensor([sample]), []
     
 def evaluate_program_bool(exp_1,exp_2,exp_3, context):
     e_bool, sig = evaluate_program_help(exp_1, context)
@@ -53,16 +46,14 @@ def evaluate_program_help(ast, context):
         if pr.is_primitive(ast):                                             # 8: case c 
             operator = context[ast[0]]
             return operator, []
-        elif torch.is_tensor(ast):
-            return ast, []
         else: 
-            return torch.FloatTensor([ast]), []                            
+            return ast, []                            
     elif ast[0] == 'sample':                                                 # 4: case sample
         return evaluate_program_sample(ast[1],context)
     elif ast[0] == 'let':                                                    #  : case let
         return evaluate_program_let(ast[1],ast[2], context)
     elif ast[0] == 'observe':                                                # 6: case observe
-        return evaluate_program_observe(ast[1],ast[2], context)
+        return evaluate_program_sample(ast[1], context)
     elif ast[0] == 'if':                                                     # 15: case if
         return evaluate_program_bool(ast[1],ast[2],ast[3], context)
     elif isinstance(ast, str):                                               # 10: case v
@@ -94,13 +85,14 @@ def evaluate_program(ast):
         if exp[0] == 'defn':
             context[exp[1]] = (exp[2], exp[3])
         else:
-            return evaluate_program_help(exp, context)
+           return evaluate_program_help(exp, context)
     
 
 def get_stream(ast):
     """Return a stream of prior samples"""
     while True:
-        yield evaluate_program(ast)
+        sample, sig = evaluate_program(ast)
+        yield sample
     
 
 
@@ -130,9 +122,9 @@ def run_probabilistic_tests():
     
     for i in range(1,7):
         #note: this path should be with respect to the daphne path!    
-        filename = dirn + '/programs/tests/probabilistic/test_5.daphne'    
+        filename = dirn + '/programs/tests/probabilistic/test_{}.daphne'    
         ast = daphne(['desugar', '-i', filename.format(i)])
-        truth = load_truth('programs/tests/probabilistic/test_5.truth'.format(i))
+        truth = load_truth('programs/tests/probabilistic/test_{}.truth'.format(i))
         
         stream = get_stream(ast)
         
@@ -147,7 +139,6 @@ def run_probabilistic_tests():
 if __name__ == '__main__':
 
     #run_deterministic_tests()
-    
     #run_probabilistic_tests()
 
 

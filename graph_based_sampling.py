@@ -20,7 +20,7 @@ env = {'sqrt':  torch.sqrt,
         '+' : operator.add,
         '-' : operator.sub,
         '*' : operator.mul,
-        '/' : lambda a,b: b / a,  # use operator.div for Python 2
+        '/' : lambda a,b: a / b,  # use operator.div for Python 2
         '%' : operator.mod,
         '^' : operator.xor, 
         'get': lambda a,b: a[b.long()],
@@ -92,14 +92,13 @@ def deterministic_eval(exp):
 def sample_from_joint(graph):
     "This function does ancestral sampling starting from the prior."
     
-    print('graph: ', graph)
-    
     user_defn = graph[0]
     graph_struct = graph[1]
     ret_exp = graph[2]
-    var_order = top_sort(graph_struct['V'],graph_struct['A'])
-    link_func = graph_struct['P']
 
+    link_func = graph_struct['P']
+    var_order = top_sort(graph_struct['V'],graph_struct['A'])
+    
     for fn in user_defn:
         env[fn] = user_defn[fn]
 

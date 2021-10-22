@@ -8,72 +8,78 @@ def mat_mul(a,b):
     try:
         return a @ b
     except:
-        a = torch.transpose(a,0,1)
-        return a @ b
+        return b @ a.t()
 
-    
-def hash_map(a,b):
-    if type(a) == tuple:
-        c = a[0]
-        val = a[1]
-        c[b] = val
-        return c
-    elif isinstance(a, Iterable):
-        return (a,b)
-    else:
-        c = {}
-        c[b] = a 
-        return c
+def hash_map(a):
+    it = iter(a)
+    m = {}
+    for key, val in zip(it,it):
+        if isinstance(key, str):
+            m[key] = val
+        else:
+            m[key.item()] = val 
+    return m
 
-def put(a,b):
-    if isinstance(b, Iterable):
-        if type(b) == torch.Tensor:
-            b.numpy()
-        b[int(a[1])] = a[0]
-        return b
-    else:
-        return (a,b)
-
-def vector(a):
+def append(a,e):
     try:
-        #has more than 1 element
-        if a[1]:                     
-            return torch.stack(a)
+        return torch.cat((a,torch.tensor([e])))
     except:
+        # a is list
         try:
-            # list of distributions
-            if a[1]:
-                return a             
+            a.append(e)
+            return a
         except:
-            # vector base case
-            return a[0]     
-    
+            return [a[0],e]
 
 
-context = { 'sqrt':  torch.sqrt,
+def put(a,i,e):
+    if torch.is_tensor(i):
+        a[i.int().item()] = e
+    else:
+        a[i] = e
+    return a
+
+def get(a,i):
+    if torch.is_tensor(i):
+        return a[i.int().item()]
+    else:
+        return a[i]
+
+def vector(a):   
+    try:
+        return torch.stack(a)                        
+    except:
+        if isinstance(a[0],float) or isinstance(a[0],int):
+            return torch.FloatTensor(a)
+        else:
+            return a
+
+
+context = { 'sqrt': lambda * x: torch.sqrt(torch.FloatTensor(x)),
             'vector': lambda *x: vector(x),
+            'hash-map': lambda *x: dict(zip(x[::2],x[1::2])),
             '+' : operator.add,
             '-' : operator.sub,
             '*' : operator.mul,
-            '/' : lambda a,b: b / a,  # use operator.div for Python 2
+            '/' : lambda a,b: a / b,  # use operator.div for Python 2
             '%' : operator.mod,
             '^' : operator.xor, 
-            'get': lambda a,b: a[b.long()],
             'put': put,
+            'append': append,
+            'get': get,
             'first': lambda x: x[0],
             'last': lambda x: x[-1],
             'second': lambda x: x[1],
             'rest': lambda x: x[1:],
-            'append': lambda x,a: torch.cat((x,torch.Tensor([a]))), 
-            '<': lambda a,b: b < a, 
-            '>': lambda a,b: b > a, 
+            '<': lambda a,b: a < b, 
+            '>': lambda a,b: a > b, 
             'normal': lambda a,b: torch.distributions.normal.Normal(a,b),
             'beta': lambda a,b: torch.distributions.beta.Beta(a,b),
             'uniform': lambda a,b: torch.distributions.uniform.Uniform(a,b),
             'exponential': lambda a: torch.distributions.exponential.Exponential(a),
             'discrete': lambda a: torch.distributions.categorical.Categorical(torch.flatten(a)),
-            'mat-transpose': lambda t: torch.transpose(t,0,1),
-            'mat-repmat': lambda t,d0,d1: t.repeat(d0.int(),d1.int()),
+            'mat-transpose': lambda t: t.t(),
+            'mat-repmat': lambda t,d0,d1: t.repeat(d0,d1),
             'mat-mul': mat_mul,
             'mat-add': torch.add, 
             'mat-tanh': torch.tanh,
