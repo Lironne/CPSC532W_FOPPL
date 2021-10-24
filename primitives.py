@@ -2,6 +2,7 @@ import torch
 import operator, copy
 
 from collections.abc import Iterable
+import torch.distributions as dist
 
 
 def append(a,e):
@@ -19,14 +20,14 @@ def append(a,e):
 
 def put(a,i,e):
     if torch.is_tensor(i):
-        a[i.int().item()] = e
+        a[i.int()] = e
     else:
         a[i] = e
     return a
 
 def get(a,i):
     if torch.is_tensor(i):
-        return a[i.int().item()]
+        return a[i.int()]
     else:
         return a[i]
 
@@ -64,11 +65,11 @@ context = { 'sqrt': lambda * x: torch.sqrt(torch.FloatTensor(x)),
             'rest': lambda x: x[1:],
             '<': lambda a,b: a < b, 
             '>': lambda a,b: a > b, 
-            'normal': lambda a,b: torch.distributions.normal.Normal(a,b),
-            'beta': lambda a,b: torch.distributions.beta.Beta(a,b),
-            'uniform': lambda a,b: torch.distributions.uniform.Uniform(a,b),
-            'exponential': lambda a: torch.distributions.exponential.Exponential(a),
-            'discrete': lambda a: torch.distributions.categorical.Categorical(torch.flatten(a)),
+            'normal': dist.normal.Normal,
+            'beta': dist.beta.Beta,
+            'uniform': dist.uniform.Uniform,
+            'exponential': dist.exponential.Exponential,
+            'discrete': lambda a: dist.categorical.Categorical(torch.flatten(a)),
             'mat-transpose': lambda t: t.t(),
             'mat-repmat': lambda t,d0,d1: t.repeat(d0,d1),
             'mat-mul': mat_mul,

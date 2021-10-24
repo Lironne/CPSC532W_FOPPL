@@ -1,22 +1,19 @@
-import torch
+import os, torch, operator, utils
 import numpy as np
 import torch.distributions as dist
-import os, math, copy, operator
 
-
-from collections.abc import Iterable
 from daphne import daphne
-
-from primitives import vector, put, get, append, mat_mul
+from primitives import vector, put, get, mat_mul
 from tests import is_tol, run_prob_test,load_truth
 from evaluation_based_sampling import evaluate_program_help
 
-
 dirn = os.path.dirname(os.path.abspath(__file__))
+
 # Put all function mappings from the deterministic language environment to your
 # Python evaluation context here:
 env = { 'sqrt': lambda * x: torch.sqrt(torch.FloatTensor(x)),
         'vector': lambda *x: vector(x),
+        'hash-map': lambda *x: dict(zip(x[::2],x[1::2])),
         '/' : lambda a,b: a / b,
         '+' : operator.add,
         '-' : operator.sub,
@@ -32,10 +29,10 @@ env = { 'sqrt': lambda * x: torch.sqrt(torch.FloatTensor(x)),
         'append': lambda x,a: torch.cat((x,torch.Tensor([a]))), 
         '<': lambda a,b: a < b, 
         '>': lambda a,b: a > b, 
-        'normal': lambda a,b: dist.normal.Normal(a,b),
-        'beta': lambda a,b: dist.beta.Beta(a,b),
-        'uniform': lambda a,b: dist.uniform.Uniform(a,b),
-        'exponential': lambda a: dist.exponential.Exponential(a),
+        'normal': dist.normal.Normal,
+        'beta': dist.beta.Beta,
+        'uniform': dist.uniform.Uniform,
+        'exponential': dist.exponential.Exponential,
         'discrete': lambda a: dist.categorical.Categorical(torch.flatten(a)),
         'mat-transpose': lambda t: torch.transpose(t,0,1),
         'mat-repmat': lambda t,d0,d1: t.repeat(d0,d1),
@@ -67,13 +64,12 @@ def top_sort(V,E):
     # Call the recursive helper function to store Topological
     # Sort starting from all vertices one by one
     for i in range(n):
-        if visited[V[i]] == 0:
+        if visited[V[i]] == 0: 
             if V[i] in E:
                 topologicalSortUtil(V[i],E,E[V[i]],visited,stack)
             else: 
                 topologicalSortUtil(V[i],E,[],visited,stack)
     return stack
-
 
 
 def deterministic_eval(exp):
@@ -92,31 +88,25 @@ def deterministic_eval(exp):
 def sample_from_joint(graph):
     "This function does ancestral sampling starting from the prior."
     
-    user_defn = graph[0]
-    graph_struct = graph[1]
-    ret_exp = graph[2]
-
-    link_func = graph_struct['P']
-    var_order = top_sort(graph_struct['V'],graph_struct['A'])
+    user_defn, G, ret_exp = graph[0], graph[1], graph[2]
+    var_order = top_sort(G['V'],G['A'])
     
     for fn in user_defn:
         env[fn] = user_defn[fn]
 
-    for var in graph_struct['Y']:
-        env[var] = graph_struct['Y'][var]
+    for var in G['Y']:
+        env[var] = G['Y'][var]
 
     for v in var_order:
-        exp = link_func[v]
-        eval_exp, sig = evaluate_program_help(exp[1], env)
-        env[v] = eval_exp.sample()     
-    
-    sample, sig = evaluate_program_help(ret_exp, env)
+        link_fn = G['P'][v]
+        # store result
+        env[v] = evaluate_program_help(link_fn[1], env)[0].sample()
     try:
         # single sample
-        return sample.item()
+        return evaluate_program_help(ret_exp, env)[0].item()
     except:
         # multi batch sample
-        return sample
+        return evaluate_program_help(ret_exp, env)[0]
 
 
 
@@ -128,8 +118,6 @@ def get_stream(graph):
         """
     while True:
         yield sample_from_joint(graph)
-
-
 
 
 #Testing:
@@ -172,23 +160,25 @@ def run_probabilistic_tests():
         assert(p_val > max_p_value)
     
     print('All probabilistic tests passed')    
-
-
         
         
 if __name__ == '__main__':
     
 
-    run_deterministic_tests()
-    run_probabilistic_tests()
-
-
-
+    #run_deterministic_tests()
+    #run_probabilistic_tests()
 
     for i in range(1,5):
+
+        n_samples = 1000
+
         filename = dirn + '/programs/{}.daphne'
         graph = daphne(['graph','-i',filename.format(i)])
         print('\n\n\nSample of prior of program {}:'.format(i))
-        print(sample_from_joint(graph))    
+        #print(sample_from_joint(graph)) 
+
+        stream = get_stream(graph)
+         
+        utils.draw_hists("Graph Based", i, stream, n_samples) 
 
     
