@@ -66,7 +66,7 @@ def gen_hists(eval, i, samples):
     try:
         # list of c
         min_v, max_v = min(samples), max(samples)
-        nbins = int(min(max_v-min_v,30))
+        nbins = int(max(max_v-min_v,10))
         bins = np.linspace(min_v, max_v,nbins)
         plot_hist(eval, i, samples, bins)
     except:

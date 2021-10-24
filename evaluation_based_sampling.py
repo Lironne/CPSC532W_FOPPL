@@ -19,65 +19,73 @@ def add_context(vals, c, context):
         context[vals[i]] = c[i]
     return context
 
-def evaluate_program_sample(dist, context):
+def evaluate_program_observe(dist, exp, context, sig):
+    d, sig = evaluate_program_help(dist, context, sig)
+    c, sig = evaluate_program_help(exp, context, sig)
+    if not torch.is_tensor(c):
+        c = torch.tensor(c)
+    sig += d.log_prob(c)
+    return c, sig
+
+def evaluate_program_sample(dist, context, sig):
     try:
         # single sample
-        return evaluate_program_help(dist, context)[0].sample().item(), []
+        return evaluate_program_help(dist, context, sig)[0].sample().item(), sig
     except:
         # multi bath sample
-        return evaluate_program_help(dist, context)[0].sample(), []
+        return evaluate_program_help(dist, context, sig)[0].sample(), sig
 
-def evaluate_program_let(exp_1,exp_0, context):
-    context[exp_1[0]], sig = evaluate_program_help(exp_1[1],context)
-    return evaluate_program_help(exp_0, context)
+def evaluate_program_let(exp_1,exp_0, context, sig):
+    context[exp_1[0]], sig = evaluate_program_help(exp_1[1],context, sig)
+    return evaluate_program_help(exp_0, context,sig)
     
-def evaluate_program_bool(exp_1,exp_2,exp_3, context):
-    e_bool, sig = evaluate_program_help(exp_1, context)
+def evaluate_program_bool(exp_1,exp_2,exp_3, context, sig):
+    e_bool, sig = evaluate_program_help(exp_1, context, sig)
     if e_bool:
-        return evaluate_program_help(exp_2, context)
+        return evaluate_program_help(exp_2, context, sig)
     else:
-        return evaluate_program_help(exp_3, context) 
+        return evaluate_program_help(exp_3, context, sig) 
 
-def evaluate_program_help(ast, context):
+def evaluate_program_help(ast,context,sig=0):
     # 8: case c
     if is_ast_c(ast):                                                         
         if pr.is_primitive(ast):                                             
             return context[ast[0]]
         else: 
-            return ast, []  
+            return ast, sig  
     # 4: case sample                          
     elif ast[0] == 'sample':                                                 
-        return evaluate_program_sample(ast[1],context)
+        return evaluate_program_sample(ast[1],context, sig)
     # 12: case let
     elif ast[0] == 'let':                                                    
-        return evaluate_program_let(ast[1],ast[2], context)
+        return evaluate_program_let(ast[1],ast[2], context, sig)
     # 6: case observe
     elif ast[0] == 'observe':                                                
-        return evaluate_program_sample(ast[1], context)
+        return evaluate_program_observe(ast[1],ast[2], context, sig)
     # 15: case if
     elif ast[0] == 'if':                                                     
-        return evaluate_program_bool(ast[1],ast[2],ast[3], context)
+        return evaluate_program_bool(ast[1],ast[2],ast[3], context, sig)
     # 10: case v
     elif isinstance(ast, str):                                               
-        return context[ast], []
+        return context[ast], sig
     # 21: case (e_0,...,e_n)
     elif isinstance(ast, Iterable):                                          
         n = len(ast)
         c = []
         for i in range(1,n):
-            c_i, sig = evaluate_program_help(ast[i], context)
+            c_i, sig = evaluate_program_help(ast[i], context, sig)
             c.append(c_i)
         # 28: case c
         if pr.is_primitive(ast[0]):                                          
             operator = context[ast[0]]
-            return operator(*c), []
+            return operator(*c), sig
         # 25: case f
         else: 
             vals, e_0 = context[ast[0]]
             context = add_context(vals, c ,context)                                
-            return evaluate_program_help(e_0, context)                   
+            return evaluate_program_help(e_0, context, sig)                   
 
-def evaluate_program(ast):
+def evaluate_program(ast, sig=0):
     """Evaluate a program as desugared by daphne, generate a sample from the prior
     Args:
         ast: json FOPPL program
@@ -89,7 +97,7 @@ def evaluate_program(ast):
         if exp[0] == 'defn':
             context[exp[1]] = (exp[2], exp[3])
         else:
-           return evaluate_program_help(exp, context)
+           return evaluate_program_help(exp, context, sig)
 
 def get_stream(ast):
     """Return a stream of prior samples"""
@@ -153,4 +161,3 @@ if __name__ == '__main__':
         stream = get_stream(ast)
     
         utils.draw_hists("Eval Based", i, stream, n_samples)
-        #print(evaluate_program(ast)[0])
