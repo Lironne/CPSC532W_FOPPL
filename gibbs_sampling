@@ -1,0 +1,31 @@
+import torch, os
+
+from daphne import daphne
+from evaluation_based_sampling import evaluate_program
+from graph_based_sampling import sample_from_joint
+
+
+dirn = os.path.dirname(os.path.abspath(__file__))
+
+def accept(sample,child,parent):
+    return 
+
+def gibbs_step(X):
+    return
+
+def gibbs(X,S):
+    samples = []
+    X_t = iter(X)
+    for _ in range(S):
+        samples.append(gibbs_step(next(X_t)))
+    return samples
+
+if __name__ == '__main__':
+
+    for i in range(1,5):
+
+        steps = 100
+
+        filename = dirn + '/programs/{}.daphne'
+        graph = daphne(['graph','-i',filename.format(i)])
+        print('\n\n\nSample of prior of program {}:'.format(i))

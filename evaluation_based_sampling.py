@@ -12,7 +12,7 @@ def is_ast_c(ast):
     if isinstance(ast, Iterable):
         return False
     else:
-        return torch.is_tensor(ast) or type(ast) == float or type(ast) == int or pr.is_primitive(ast) 
+        return torch.is_tensor(ast) or type(ast) == float or type(ast) == int or pr.is_primitive(ast) or type(ast) == bool
 
 def add_context(vals, c, context):
     for i in range(len(c)):
@@ -24,7 +24,10 @@ def evaluate_program_observe(dist, exp, context, sig):
     c, sig = evaluate_program_help(exp, context, sig)
     if not torch.is_tensor(c):
         c = torch.tensor(c)
-    sig += d.log_prob(c)
+    W = d.log_prob(c)
+    W = W.unsqueeze(0) if W.dim() == 0 else W
+    print('sig? ', sig, 'W? ', W)
+    sig += W
     return c, sig
 
 def evaluate_program_sample(dist, context, sig):
@@ -51,6 +54,8 @@ def evaluate_program_help(ast,context,sig=0):
     if is_ast_c(ast):                                                         
         if pr.is_primitive(ast):                                             
             return context[ast[0]]
+        elif type(ast) == bool:
+            return torch.tensor([float(ast)]), sig
         else: 
             return ast, sig  
     # 4: case sample                          

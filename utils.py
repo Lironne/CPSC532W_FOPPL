@@ -81,7 +81,7 @@ def gen_hists(eval, i, samples):
                 hists.append([torch.squeeze(sample[d].t()).numpy() for sample in samples])
             plot_hists_n(eval, i, hists)
 
-def draw_hists(eval, i,stream,n_samples):
+def draw_hists(eval, i,stream, n_samples):
 
     samples = []
     for _ in range(int(n_samples)):
