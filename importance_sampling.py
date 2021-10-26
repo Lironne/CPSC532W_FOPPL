@@ -31,7 +31,6 @@ if __name__ == '__main__':
         #stream = get_stream(ast)
         samples, weights = likelihood_weighting(ast, L)
         print('samples lengh: ',len(samples), 'weights: ', weights.size())
-        #print('type samples: ', type(samples),'type weights: ' ,type(weights))
         #samples = samples * weights 
         
     

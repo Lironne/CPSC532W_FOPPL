@@ -1,4 +1,4 @@
-import os, torch, operator, utils
+import os, torch, operator,copy, utils
 import numpy as np
 import torch.distributions as dist
 
@@ -29,10 +29,16 @@ env = { 'sqrt': lambda * x: torch.sqrt(torch.FloatTensor(x)),
         'append': lambda x,a: torch.cat((x,torch.Tensor([a]))), 
         '<': lambda a,b: a < b, 
         '>': lambda a,b: a > b, 
+        '=': lambda a,b: a == b,
+        'and': lambda a,b: a and b,
+        'or': lambda a,b: a or b,
         'normal': dist.normal.Normal,
         'beta': dist.beta.Beta,
         'uniform': dist.uniform.Uniform,
         'exponential': dist.exponential.Exponential,
+        'flip': dist.bernoulli.Bernoulli,
+        'dirichlet': dist.dirichlet.Dirichlet,
+        'gamma' : dist.gamma.Gamma,
         'discrete': lambda a: dist.categorical.Categorical(torch.flatten(a)),
         'mat-transpose': lambda t: torch.transpose(t,0,1),
         'mat-repmat': lambda t,d0,d1: t.repeat(d0,d1),
@@ -72,7 +78,7 @@ def top_sort(V,E):
     return stack
 
 
-def deterministic_eval(exp):
+def deterministic_eval(exp, env):
     "Evaluation function for the deterministic target language of the graph based representation."
     if type(exp) is list:
         op = exp[0]
@@ -85,10 +91,9 @@ def deterministic_eval(exp):
         raise("Expression type unknown.", exp)
 
 
-def sample_from_joint(graph):
-    "This function does ancestral sampling starting from the prior."
-    
-    user_defn, G, ret_exp = graph[0], graph[1], graph[2]
+def evaluate_graph(graph, observe=True):
+
+    user_defn, G = graph[0], graph[1]
     var_order = top_sort(G['V'],G['A'])
     
     for fn in user_defn:
@@ -99,8 +104,27 @@ def sample_from_joint(graph):
 
     for v in var_order:
         link_fn = G['P'][v]
+        if not observe and link_fn[0] == 'observe*':
+            continue
         # store result
-        env[v] = evaluate_program_help(link_fn[1], env)[0].sample()
+        dist, _ = evaluate_program_help(link_fn[1], env)
+        env[v] = dist.sample()
+        G['Y'][v] = dist
+    return copy.deepcopy(graph), copy.deepcopy(env)
+
+
+def sample_from_graph(graph, context):
+    ret_exp = graph[2]
+    return evaluate_program_help(ret_exp, context)[0]
+
+    
+
+def sample_from_joint(graph, observe=True):
+    "This function does ancestral sampling starting from the prior."
+    
+    ret_exp =  graph[2]
+    evaluate_graph(graph,observe)
+
     try:
         # single sample
         return evaluate_program_help(ret_exp, env)[0].item()
@@ -165,8 +189,8 @@ def run_probabilistic_tests():
 if __name__ == '__main__':
     
 
-    run_deterministic_tests()
-    run_probabilistic_tests()
+    #run_deterministic_tests()
+    #run_probabilistic_tests()
 
     for i in range(1,5):
 
@@ -175,10 +199,11 @@ if __name__ == '__main__':
         filename = dirn + '/programs/{}.daphne'
         graph = daphne(['graph','-i',filename.format(i)])
         print('\n\n\nSample of prior of program {}:'.format(i))
-        #print(sample_from_joint(graph)) 
+        sample_from_joint(graph) 
+        print('graph:', graph)
 
-        stream = get_stream(graph)
+        #stream = get_stream(graph)
          
-        utils.draw_hists("Graph Based", i, stream, n_samples) 
+        #utils.draw_hists("Graph Based", i, stream, n_samples) 
 
     

@@ -20,13 +20,18 @@ def add_context(vals, c, context):
     return context
 
 def evaluate_program_observe(dist, exp, context, sig):
+
+    if torch.is_tensor(exp):
+        c = exp
+    else: 
+        c, sig = evaluate_program_help(exp, context, sig)
+    
     d, sig = evaluate_program_help(dist, context, sig)
-    c, sig = evaluate_program_help(exp, context, sig)
-    if not torch.is_tensor(c):
-        c = torch.tensor(c)
+    if not torch.is_tensor(exp):
+        c, sig = torch.tensor(c)
+
     W = d.log_prob(c)
     W = W.unsqueeze(0) if W.dim() == 0 else W
-    print('sig? ', sig, 'W? ', W)
     sig += W
     return c, sig
 
@@ -84,6 +89,8 @@ def evaluate_program_help(ast,context,sig=0):
         if pr.is_primitive(ast[0]):                                          
             operator = context[ast[0]]
             return operator(*c), sig
+        elif torch.is_tensor(ast[0]):
+            return ast[0], sig
         # 25: case f
         else: 
             vals, e_0 = context[ast[0]]
@@ -165,4 +172,4 @@ if __name__ == '__main__':
 
         stream = get_stream(ast)
     
-        utils.draw_hists("Eval Based", i, stream, n_samples)
+        #utils.draw_hists("Eval Based", i, stream, n_samples)
