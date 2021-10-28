@@ -34,4 +34,4 @@ if __name__ == '__main__':
         #samples = samples * weights 
         
     
-        #utils.draw_hists("IS", i, stream, iter)
+        #utils.gen_hists("IS", i, samples)

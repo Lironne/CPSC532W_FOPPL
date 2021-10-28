@@ -108,7 +108,9 @@ def evaluate_graph(graph, observe=True):
             continue
         # store result
         dist, _ = evaluate_program_help(link_fn[1], env)
-        env[v] = dist.sample()
+        sample = dist.sample()
+        sample = sample.unsqueeze(0) if sample.dim() == 0 else sample
+        env[v] = sample
         G['Y'][v] = dist
     return copy.deepcopy(graph), copy.deepcopy(env)
 
@@ -125,12 +127,14 @@ def sample_from_joint(graph, observe=True):
     ret_exp =  graph[2]
     evaluate_graph(graph,observe)
 
-    try:
-        # single sample
-        return evaluate_program_help(ret_exp, env)[0].item()
-    except:
-        # multi batch sample
-        return evaluate_program_help(ret_exp, env)[0]
+    return evaluate_program_help(ret_exp,env)[0]
+
+    # try:
+    #     # single sample
+    #     return evaluate_program_help(ret_exp, env)[0]
+    # except:
+    #     # multi batch sample
+    #     return evaluate_program_help(ret_exp, env)[0]
 
 
 
