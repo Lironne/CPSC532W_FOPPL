@@ -3,7 +3,7 @@ import torch.distributions as dist
 
 from daphne import daphne
 from evaluation_based_sampling import evaluate_program, evaluate_program_help, evaluate_program_observe
-from graph_based_sampling import deterministic_eval, evaluate_graph, sample_from_graph
+from graph_based_sampling import deterministic_eval, evaluate_graph, sample_from_graph, sample_from_joint
 
 
 dirn = os.path.dirname(os.path.abspath(__file__))
@@ -31,13 +31,14 @@ def accept(graph,linkfn,v, context):
             alpha += score_c
             alpha -= score_p
 
-    return sample, torch.exp(alpha) 
+    return sample ,torch.exp(alpha) 
 
-def gibbs_step(G, context):
+def gibbs_step(G,V,context):
     samples = []
+    jll = []
     graph = G[1]
 
-    for v in graph['V']:
+    for v in V:
         sample = sample_from_graph(G,context)
         eval_v, alpha = accept(graph,graph['P'][v],v,context)
 
@@ -47,18 +48,22 @@ def gibbs_step(G, context):
             #sample = sample.unsqueeze(0) if sample.dim() == 0 else sample
             sample = sample.squeeze().float()
             context[v] = eval_v
-            samples.append(sample)       
+            samples.append(sample)
+            jll.append(torch.log(alpha))       
 
-    return (samples, copy.deepcopy(context))
+    return samples, jll, copy.deepcopy(context)
 
 def gibbs(X,S):
     samples = []
+    jll = []
+    V = list(set(X[1]['V']) - set(X[1]['Y'].keys()))
     G, context = evaluate_graph(X)
     for _ in range(S):
         
-        s, context = gibbs_step(G,context)
+        s, alpha, context = gibbs_step(G,V,context)
         samples.extend(s)
-    return samples
+        jll.extend(alpha)
+    return samples, jll
 
 if __name__ == '__main__':
 

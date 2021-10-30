@@ -9,6 +9,7 @@ def likelihood_weighting(ast, L):
     r = []
     for l in range(L):
        c , sig[l] = evaluate_program(ast,sig[l])
+       c = c.float() if torch.is_tensor(c) else c
        r.append(c)
     return r, sig
 
@@ -21,7 +22,7 @@ if __name__ == '__main__':
 
     for i in range(1,5):
 
-        iter = 10
+        
         L = 100
 
         filename = dirn + '/programs/{}.daphne'
@@ -30,8 +31,8 @@ if __name__ == '__main__':
 
         #stream = get_stream(ast)
         samples, weights = likelihood_weighting(ast, L)
-        print('samples lengh: ',len(samples), 'weights: ', weights.size())
+        #print('samples: ',samples, 'weights: ', weights.size())
         #samples = samples * weights 
         
     
-        #utils.gen_hists("IS", i, samples)
+        utils.gen_hists("IS", i, samples)

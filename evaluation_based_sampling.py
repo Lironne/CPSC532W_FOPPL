@@ -21,14 +21,13 @@ def add_context(vals, c, context):
 
 def evaluate_program_observe(dist, exp, context, sig):
 
-    if torch.is_tensor(exp):
-        c = exp
-    else: 
-        c, sig = evaluate_program_help(exp, context, sig)
-    
-    d, sig = evaluate_program_help(dist, context, sig)
     if not torch.is_tensor(exp):
-        c, sig = torch.tensor(c)
+        c, sig = evaluate_program_help(exp, context, sig)
+    else:
+        c = exp
+
+    d, sig = evaluate_program_help(dist, context, sig)
+    c = torch.tensor([float(c)]) if not torch.is_tensor(c) else c
 
     W = d.log_prob(c)
     W = W.unsqueeze(0) if W.dim() == 0 else W
