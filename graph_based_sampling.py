@@ -9,6 +9,17 @@ from evaluation_based_sampling import evaluate_program_help
 
 dirn = os.path.dirname(os.path.abspath(__file__))
 
+class Dirac:
+    def __init__(self, val):
+        self.x = val
+
+    def sample(self):
+        return
+    
+    def log_prob(self, y):
+        return torch.log(1 / (self.x - y))
+
+
 # Put all function mappings from the deterministic language environment to your
 # Python evaluation context here:
 env = { 'sqrt': lambda * x: torch.sqrt(torch.FloatTensor(x)),
@@ -39,7 +50,7 @@ env = { 'sqrt': lambda * x: torch.sqrt(torch.FloatTensor(x)),
         'flip': dist.bernoulli.Bernoulli,
         'dirichlet': dist.dirichlet.Dirichlet,
         'gamma' : dist.gamma.Gamma,
-        'dirac': lambda *x: print(x),
+        'dirac': lambda x: Dirac(x),
         'discrete': lambda a: dist.categorical.Categorical(torch.flatten(a)),
         'mat-transpose': lambda t: torch.transpose(t,0,1),
         'mat-repmat': lambda t,d0,d1: t.repeat(d0,d1),
@@ -106,6 +117,8 @@ def evaluate_graph(graph, observe=True):
     for v in var_order:
         link_fn = G['P'][v]
         if not observe and link_fn[0] == 'observe*':
+            dist, sig = evaluate_program_help(link_fn[1], env)
+            env[v] = dist
             continue
         # store result
         dist, _ = evaluate_program_help(link_fn[1], env)

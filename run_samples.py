@@ -23,7 +23,7 @@ if __name__ == '__main__':
 
         print('running for {} iterations'.format(iter))
 
-        if i == 1 or i == 2 or i == 5:
+        if i == 1 or i == 2:
 
             start_time = time.time()
             samples, jll = hmc_init(copy.deepcopy(graph), iter, T, eps)
