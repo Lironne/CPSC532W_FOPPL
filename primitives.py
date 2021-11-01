@@ -5,6 +5,16 @@ from collections.abc import Iterable
 import torch.distributions as dist
 
 
+class Dirac:
+    def __init__(self, val):
+        self.x = val
+
+    def sample(self):
+        return
+    
+    def observe(self, y):
+        return 1 / (self.x - y)
+
 def append(a,e):
     try:
         return torch.cat((a,torch.tensor([e])))
@@ -75,7 +85,7 @@ context = { 'sqrt': lambda * x: torch.sqrt(torch.FloatTensor(x)),
             'flip': dist.bernoulli.Bernoulli,
             'dirichlet': dist.dirichlet.Dirichlet,
             'gamma' : dist.gamma.Gamma,
-            'dirac': lambda x: print(x),
+            'dirac': lambda *x: print(x),
             'discrete': lambda a: dist.categorical.Categorical(torch.flatten(a)),
             'mat-transpose': lambda t: t.t(),
             'mat-repmat': lambda t,d0,d1: t.repeat(d0,d1),
