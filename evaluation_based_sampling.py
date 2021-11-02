@@ -12,7 +12,7 @@ def is_ast_c(ast):
     if isinstance(ast, Iterable):
         return False
     else:
-        return torch.is_tensor(ast) or type(ast) == float or type(ast) == int or pr.is_primitive(ast) or type(ast) == bool
+        return type(ast) == float or type(ast) == int or pr.is_primitive(ast) or type(ast) == bool
 
 def add_context(vals, c, context):
     for i in range(len(c)):
@@ -31,16 +31,28 @@ def evaluate_program_observe(dist, exp, context, sig):
 
     W = d.log_prob(c)
     W = W.unsqueeze(0) if W.dim() == 0 else W
-    sig += W
+    sig = W + sig
     return c, sig
 
 def evaluate_program_sample(dist, context, sig):
-    try:
-        # single sample
-        return evaluate_program_help(dist, context, sig)[0].sample().item(), sig
-    except:
-        # multi bath sample
-        return evaluate_program_help(dist, context, sig)[0].sample(), sig
+    print('dist? ', dist)
+    v = dist[0]
+    d, sig = evaluate_program_help(dist, context, sig)
+
+    if v not in context['Q']:
+        context['Q'][v] = d.make_copy_with_grads()
+    
+    c = context['Q'][v].sample()
+    log_prob_c = context['Q'][v].log_prob(c)
+
+    #print('log prog c? ', context['Q'][v].log_prob(c))
+    context['Q'][v].log_prob(c).backward(torch.ones_like(log_prob_c))
+    context['G'][v] = [param.grad.detach() for param in context['Q'][v].Parameters()]
+
+    logW_v = d.log_prob(c).detach() - context['Q'][v].log_prob(c).detach()
+    sig = logW_v + sig
+
+    return c, sig
 
 def evaluate_program_let(exp_1,exp_0, context, sig):
     context[exp_1[0]], sig = evaluate_program_help(exp_1[1],context, sig)
@@ -54,14 +66,13 @@ def evaluate_program_bool(exp_1,exp_2,exp_3, context, sig):
         return evaluate_program_help(exp_3, context, sig) 
 
 def evaluate_program_help(ast,context,sig=0):
+    print('ast? ', ast)
     # 8: case c
-    if is_ast_c(ast):                                                         
+    if is_ast_c(ast):                                                    
         if pr.is_primitive(ast):                                             
             return context[ast[0]]
-        elif type(ast) == bool:
-            return torch.tensor([float(ast)]), sig
         else: 
-            return ast, sig  
+            return torch.tensor(float(ast)), sig  
     # 4: case sample                          
     elif ast[0] == 'sample':                                                 
         return evaluate_program_sample(ast[1],context, sig)
@@ -88,8 +99,6 @@ def evaluate_program_help(ast,context,sig=0):
         if pr.is_primitive(ast[0]):                                          
             operator = context[ast[0]]
             return operator(*c), sig
-        elif torch.is_tensor(ast[0]):
-            return ast[0], sig
         # 25: case f
         else: 
             vals, e_0 = context[ast[0]]
@@ -169,6 +178,7 @@ if __name__ == '__main__':
         ast = daphne(['desugar', '-i', filename.format(i)])
         print('\n\n\nSample of prior of program {}:'.format(i))
 
-        stream = get_stream(ast)
+        #stream = get_stream(ast)
+        evaluate_program(ast)
     
         #utils.draw_hists("Eval Based", i, stream, n_samples)

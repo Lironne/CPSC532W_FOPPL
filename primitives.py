@@ -2,18 +2,20 @@ import torch
 import operator, copy
 
 from collections.abc import Iterable
+import distributions as d
 import torch.distributions as dist
 
 
-class Dirac(torch.distributions.Distribution):
-    def __init__(self, val):
-        self.x = val
 
-    def sample(self):
-        return
+# class Dirac(torch.distributions.Distribution):
+#     def __init__(self, val):
+#         self.x = val
+
+#     def sample(self):
+#         return
     
-    def log_prob(self, y):
-        return torch.log(1 / (self.x - y))
+#     def log_prob(self, y):
+#         return torch.log(1 / (self.x - y))
 
 def append(a,e):
     try:
@@ -30,14 +32,14 @@ def append(a,e):
 
 def put(a,i,e):
     if torch.is_tensor(i):
-        a[i.int()] = e
+        a[i.long()] = e
     else:
         a[i] = e
     return a
 
 def get(a,i):
     if torch.is_tensor(i):
-        return a[i.int()]
+        return a[i.long()]
     else:
         return a[i]
 
@@ -45,19 +47,20 @@ def vector(a):
     try:
         return torch.stack(a)                        
     except:
-        if isinstance(a[0],float) or isinstance(a[0],int):
-            return torch.FloatTensor(a)
-        else:
-            return a
+        # if isinstance(a[0],float) or isinstance(a[0],int):
+        #     return torch.FloatTensor(a)
+        # else:
+        return a
 
 def mat_mul(a,b):
     try:
         return a @ b
     except:
-        return b @ a.t()
+        print('b size', b.size(), 'a size: ', a.size())
+        return b @ torch.transpose(a,0,1)
 
 
-context = { 'sqrt': lambda * x: torch.sqrt(torch.FloatTensor(x)),
+context = { 'sqrt': torch.sqrt,
             'vector': lambda *x: vector(x),
             'hash-map': lambda *x: dict(zip(x[::2],x[1::2])),
             '/' : lambda a,b: a / b, 
@@ -78,20 +81,21 @@ context = { 'sqrt': lambda * x: torch.sqrt(torch.FloatTensor(x)),
             '=': lambda a,b: a == b,
             'and': lambda a,b: a and b,
             'or': lambda a,b: a or b,
-            'normal': dist.normal.Normal,
+            'normal': d.Normal,
             'beta': dist.beta.Beta,
             'uniform': dist.uniform.Uniform,
             'exponential': dist.exponential.Exponential,
-            'flip': dist.bernoulli.Bernoulli,
-            'dirichlet': dist.dirichlet.Dirichlet,
-            'gamma' : dist.gamma.Gamma,
-            'dirac': lambda x: Dirac(x),
-            'discrete': lambda a: dist.categorical.Categorical(torch.flatten(a)),
-            'mat-transpose': lambda t: t.t(),
-            'mat-repmat': lambda t,d0,d1: t.repeat(d0,d1),
+            'flip': d.Bernoulli,
+            'dirichlet': d.Dirichlet,
+            'gamma' : d.Gamma,
+            'discrete': lambda a: d.Categorical(torch.flatten(a)),
+            'mat-transpose': lambda t: torch.transpose(t,0,1),
+            'mat-repmat': lambda t,d0,d1: t.repeat(d0.int(),d1.int()),
             'mat-mul': mat_mul,
             'mat-add': torch.add, 
             'mat-tanh': torch.tanh,
+            'Q': {},
+            'G': {}
             }
 
 def get_primitives():
