@@ -66,7 +66,6 @@ def evaluate_program_bool(exp_1,exp_2,exp_3, context, sig):
         return evaluate_program_help(exp_3, context, sig) 
 
 def evaluate_program_help(ast,context,sig=0):
-    print('ast? ', ast)
     # 8: case c
     if is_ast_c(ast):                                                    
         if pr.is_primitive(ast):                                             
@@ -178,7 +177,7 @@ if __name__ == '__main__':
         ast = daphne(['desugar', '-i', filename.format(i)])
         print('\n\n\nSample of prior of program {}:'.format(i))
 
-        #stream = get_stream(ast)
-        evaluate_program(ast)
+        stream = get_stream(ast)
+        #evaluate_program(ast)
     
-        #utils.draw_hists("Eval Based", i, stream, n_samples)
+        utils.draw_hists("Eval Based", i, stream, n_samples)

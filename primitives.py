@@ -6,17 +6,6 @@ import distributions as d
 import torch.distributions as dist
 
 
-
-# class Dirac(torch.distributions.Distribution):
-#     def __init__(self, val):
-#         self.x = val
-
-#     def sample(self):
-#         return
-    
-#     def log_prob(self, y):
-#         return torch.log(1 / (self.x - y))
-
 def append(a,e):
     try:
         return torch.cat((a,torch.tensor([e])))
