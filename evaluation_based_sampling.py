@@ -21,36 +21,29 @@ def add_context(vals, c, context):
 
 def evaluate_program_observe(dist, exp, context, sig):
 
-    if not torch.is_tensor(exp):
-        c, sig = evaluate_program_help(exp, context, sig)
-    else:
-        c = exp
-
     d, sig = evaluate_program_help(dist, context, sig)
-    c = torch.tensor([float(c)]) if not torch.is_tensor(c) else c
+    c, sig = evaluate_program_help(exp, context, sig)
 
     W = d.log_prob(c)
-    W = W.unsqueeze(0) if W.dim() == 0 else W
-    sig = W + sig
+    sig['logW'] = W + sig['logW']
     return c, sig
 
 def evaluate_program_sample(dist, context, sig):
-    print('dist? ', dist)
-    v = dist[0]
+
+    v = id(dist)
     d, sig = evaluate_program_help(dist, context, sig)
 
-    if v not in context['Q']:
-        context['Q'][v] = d.make_copy_with_grads()
+    if v not in sig['Q']:
+        sig['Q'][v] = d.make_copy_with_grads()
     
-    c = context['Q'][v].sample()
-    log_prob_c = context['Q'][v].log_prob(c)
+    c = sig['Q'][v].sample()
+    log_prob_c = sig['Q'][v].log_prob(c)
 
-    #print('log prog c? ', context['Q'][v].log_prob(c))
-    context['Q'][v].log_prob(c).backward(torch.ones_like(log_prob_c))
-    context['G'][v] = [param.grad.detach() for param in context['Q'][v].Parameters()]
+    log_prob_c.backward(torch.ones_like(log_prob_c))
+    sig['G'][v] = [param.grad.clone().detach() for param in sig['Q'][v].Parameters()]
 
-    logW_v = d.log_prob(c).detach() - context['Q'][v].log_prob(c).detach()
-    sig = logW_v + sig
+    logW_v = d.log_prob(c).clone() - sig['Q'][v].log_prob(c).clone()
+    sig['logW'] = logW_v + sig['logW']
 
     return c, sig
 
@@ -104,7 +97,7 @@ def evaluate_program_help(ast,context,sig=0):
             context = add_context(vals, c ,context)                                
             return evaluate_program_help(e_0, context, sig)                   
 
-def evaluate_program(ast, sig=0):
+def evaluate_program(ast, sig=[]):
     """Evaluate a program as desugared by daphne, generate a sample from the prior
     Args:
         ast: json FOPPL program

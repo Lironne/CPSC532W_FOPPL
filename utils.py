@@ -45,6 +45,18 @@ def plot_num(eval,i,samples,jll,avg,var,t,weighted=False,w=[]):
     plt.savefig(fname)
     plt.clf()
 
+def plot_elbo(eval,i,elbo,L):
+    plt.figure(figsize=(10,7))
+    elbo = torch.mean(elbo,axis=1)
+    plt.plot(elbo)
+    fname = dirn + '/figures/{}_elbo_program_{}.jpg'.format(eval,i)
+    title = "{} ELBO for Program {}   L = {}".format(eval, i,L)
+    plt.xlabel('T')
+    plt.title(title)
+    plt.savefig(fname)
+    plt.clf()
+
+
 def plot_bool(eval,i,samples,jll,avg,var,t,weighted=False,w=[]):
     k = 4
     data_t = {0:samples, 1: avg.T, 2: var.T, 3:w if weighted else np.array(jll).flatten()}
@@ -84,6 +96,36 @@ def gen_traces(eval,i,t,samples,jll,weighted=False,w=[]):
     avg,var = get_avg_var(samples,weighted,w)
     plot_traces(eval,i,samples,jll,avg,var,t,weighted,w)
 
+def plot_heatmap(eval,i,samples, T, L, dim=False, d=0):
+    plt.figure(figsize=(10,7))
+    sns.heatmap(samples)
+    fname = dirn + '/figures/{}_heatmap_plt_{}_dim_{}.jpg'.format(eval,i,d)
+    title = '{} heatmap for {}   L = {}'.format(eval,labels[i][d],L)
+    plt.title(title)
+    plt.xlabel('T')
+    plt.savefig(fname)
+    plt.clf()
+
+
+def plot_heatmaps_n(eval, i, samples, T,L):
+    for d in range(len(samples)):
+        t = samples[d]
+        if t.dim() < 3:
+            plot_heatmap(eval,i,t.T,T,L,True, d)
+        else:
+            k = t.size()[2]
+            fig, axs = plt.subplots(2,5, figsize=(16,9), dpi=100)
+            for j, ax in zip(range(k), axs.flat):
+                sns.heatmap(data=t[:,j].t(),cbar=True, ax=ax)
+                ax.title.set_text('range over {}[{}]'.format(labels[i][d],j))
+                ax.set_xlabel('T')
+            fname = dirn + '/figures/{}_heatmap_plt_{}_dim_{}.jpg'.format(eval,i,d)
+            title = '{} heatmap for {}   L = {}'.format(eval,labels[i][d],L)
+            fig.suptitle(title, fontsize=24)
+            plt.savefig(fname)
+            plt.clf()
+
+
 def plot_hists_n(eval, i, hists):
     for d in range(len(hists)):
         samples = np.array(hists[d])
@@ -93,9 +135,9 @@ def plot_hists_n(eval, i, hists):
         else:
             # ND random var 
             _,k,_ = samples.shape 
-            fig, axs = plt.subplots(2,5, figsize=(20,17), dpi=100)
+            fig, axs = plt.subplots(2,5, figsize=(18,9), dpi=100)
             for j, ax in zip(range(k), axs.flat):
-                sns.histplot(data=samples[:][j],kde=True,stat='density',cbar=True,multiple='dodge', ax=ax)
+                sns.histplot(data=samples[:,j],kde=True,stat='density',cbar=True,multiple='dodge', ax=ax)
                 ax.title.set_text('range over {}[{}]'.format(labels[i][d],j))
             fname = get_fname_hist(eval, i,True,d)
             title = get_title_hist(eval, i, True, d)
@@ -133,7 +175,10 @@ def gen_hists(eval, i, samples):
     except:
         try:
             # 1 rnd var
-            samples = torch.stack(samples).numpy()
+            if torch.is_tensor(samples):
+                samples = samples.numpy()
+            else:
+                samples = torch.stack(samples).numpy()
             plot_hist_arr(eval, i, samples)
             plt.close('all')
         except:

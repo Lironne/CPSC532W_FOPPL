@@ -50,6 +50,7 @@ def mat_mul(a,b):
 
 
 context = { 'sqrt': torch.sqrt,
+    	    'abs': torch.abs,
             'vector': lambda *x: vector(x),
             'hash-map': lambda *x: dict(zip(x[::2],x[1::2])),
             '/' : lambda a,b: a / b, 
@@ -73,6 +74,7 @@ context = { 'sqrt': torch.sqrt,
             'normal': d.Normal,
             'beta': dist.beta.Beta,
             'uniform': dist.uniform.Uniform,
+            'uniform-continuous': d.Uniform,
             'exponential': dist.exponential.Exponential,
             'flip': d.Bernoulli,
             'dirichlet': d.Dirichlet,
